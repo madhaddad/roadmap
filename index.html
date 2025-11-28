@@ -445,10 +445,36 @@
     let tasks = [];
     let editingTaskId = null;
     let compactMode = false;
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+    // Normalize to YYYY-MM-DD where possible
+    function toISODate(value) {
+      if (!value) return '';
+      // already ISO-like
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+      const parsed = new Date(value);
+      if (isNaN(parsed)) return '';
+      return parsed.toISOString().slice(0, 10);
+    }
 
     function loadTasks() {
-      const stored = JSON.parse(localStorage.getItem('roadmapTasks') || '[]');
-      tasks = stored;
+      try {
+        const stored = JSON.parse(localStorage.getItem('roadmapTasks') || '[]');
+        // normalize dates stored from inconsistent sources
+        tasks = (Array.isArray(stored) ? stored : []).map(t => {
+          // if any task has a startDate that can be parsed, convert to YYYY-MM-DD
+          const normalized = toISODate(t.startDate) || t.startDate || '';
+          return {
+            id: t.id,
+            title: t.title || '',
+            startDate: normalized,
+            duration: Number.isFinite(t.duration) ? t.duration : parseInt(t.duration) || 0,
+            color: t.color || colors[Math.floor(Math.random() * colors.length)]
+          };
+        });
+      } catch (err) {
+        tasks = [];
+      }
       renderTimeline();
     }
 
@@ -464,31 +490,40 @@
       reader.onload = function(e) {
         const text = e.target.result;
         const lines = text.split('\n').filter(line => line.trim());
-        
-        // Skip header row
-        for (let i = 1; i < lines.length; i++) {
+
+        // Skip header row if present (simple heuristic: detect "title" or "start" in first row)
+        let startIndex = 0;
+        if (lines.length && /title/i.test(lines[0]) && /start/i.test(lines[0])) {
+          startIndex = 1;
+        }
+
+        for (let i = startIndex; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
-          
+
+          // handle CSV with commas inside quotes (basic)
           const parts = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
-          
+
           if (parts.length >= 3) {
             const title = parts[0];
-            const startDate = parts[1];
+            const rawStart = parts[1];
             const duration = parseInt(parts[2]);
-            
-            if (title && startDate && duration) {
+
+            const isoDate = toISODate(rawStart);
+
+            // Only import when we have sane values
+            if (title && isoDate && Number.isFinite(duration) && duration > 0) {
               tasks.push({
                 id: Date.now() + i,
                 title,
-                startDate,
+                startDate: isoDate,
                 duration,
                 color: colors[Math.floor(Math.random() * colors.length)]
               });
             }
           }
         }
-        
+
         saveTasks();
         renderTimeline();
         event.target.value = '';
@@ -498,11 +533,13 @@
 
     function addTask() {
       const title = document.getElementById('taskTitle').value.trim();
-      const startDate = document.getElementById('startDate').value;
+      const startDateRaw = document.getElementById('startDate').value;
       const duration = parseInt(document.getElementById('duration').value);
 
-      if (!title || !startDate || !duration) {
-        alert('Please fill in all fields');
+      const startDate = toISODate(startDateRaw);
+
+      if (!title || !startDate || !Number.isFinite(duration) || duration < 1) {
+        alert('Please fill in all fields with valid values');
         return;
       }
 
@@ -525,11 +562,13 @@
 
     function getEndDate(startDate, weeks) {
       const date = new Date(startDate);
-      date.setDate(date.getDate() + weeks * 7);
+      if (isNaN(date)) return new Date(NaN);
+      date.setDate(date.getDate() + (Number.isFinite(weeks) ? weeks * 7 : 0));
       return date;
     }
 
     function formatDate(date) {
+      if (!(date instanceof Date) || isNaN(date)) return 'Invalid date';
       return date.toLocaleDateString('en-US', { 
         year: 'numeric', 
         month: 'short', 
@@ -541,15 +580,15 @@
       const tooltip = document.getElementById('tooltip');
       const tooltipTitle = tooltip.querySelector('.tooltip-title');
       const tooltipDates = tooltip.querySelector('.tooltip-dates');
-      
+
       const startDate = new Date(task.startDate);
       const endDate = getEndDate(task.startDate, task.duration);
-      
-      tooltipTitle.textContent = task.title;
+
+      tooltipTitle.textContent = task.title || '';
       tooltipDates.textContent = `${formatDate(startDate)} - ${formatDate(endDate)}`;
-      
-      tooltip.style.left = e.pageX + 10 + 'px';
-      tooltip.style.top = e.pageY + 10 + 'px';
+
+      tooltip.style.left = (e.pageX + 10) + 'px';
+      tooltip.style.top = (e.pageY + 10) + 'px';
       tooltip.classList.add('visible');
     }
 
@@ -568,6 +607,8 @@
       const end1 = getEndDate(task1.startDate, task1.duration);
       const start2 = new Date(task2.startDate);
       const end2 = getEndDate(task2.startDate, task2.duration);
+
+      if (isNaN(start1) || isNaN(end1) || isNaN(start2) || isNaN(end2)) return false;
       
       return start1 < end2 && start2 < end1;
     }
@@ -624,32 +665,45 @@
       return months;
     }
 
+    function clamp01(v) {
+      return Math.max(0, Math.min(100, v));
+    }
+
     function renderTimeline() {
       const timeline = document.getElementById('timeline');
       
-      if (tasks.length === 0) {
+      if (!tasks || tasks.length === 0) {
         timeline.innerHTML = `
           <div class="empty-state">
-            <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+            <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 [...]"/>
             <p>No tasks yet. Add your first task to get started!</p>
           </div>
         `;
         return;
       }
 
-      const allDates = tasks.flatMap(t => [
-        new Date(t.startDate),
-        getEndDate(t.startDate, t.duration)
-      ]);
-      
+      const allDates = tasks.flatMap(t => {
+        const s = new Date(t.startDate);
+        const e = getEndDate(t.startDate, t.duration);
+        return [s, e];
+      }).filter(d => d instanceof Date && !isNaN(d));
+
+      if (allDates.length === 0) {
+        timeline.innerHTML = `<div class="empty-state"><p>All task dates are invalid. Please fix task dates.</p></div>`;
+        return;
+      }
+
       const minDate = new Date(Math.min(...allDates));
       const maxDate = new Date(Math.max(...allDates));
       
       minDate.setDate(minDate.getDate() - 7);
       maxDate.setDate(maxDate.getDate() + 7);
 
+      // prevent division by zero
+      let totalDays = (maxDate - minDate) / MS_PER_DAY;
+      if (!Number.isFinite(totalDays) || totalDays <= 0) totalDays = 1;
+
       const months = getMonthsBetween(minDate, maxDate);
-      const totalDays = (maxDate - minDate) / (1000 * 60 * 60 * 24);
 
       // Start building HTML with grid
       let html = '<div class="timeline-grid">';
@@ -659,9 +713,9 @@
         const monthStart = new Date(month);
         const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
         
-        const startOffset = ((monthStart - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-        const endOffset = ((monthEnd - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-        const width = endOffset - startOffset;
+        const startOffset = clamp01(((monthStart - minDate) / MS_PER_DAY) / totalDays * 100);
+        const endOffset = clamp01(((monthEnd - minDate) / MS_PER_DAY) / totalDays * 100);
+        const width = Math.max(0, endOffset - startOffset);
         
         html += `<div class="month-background ${index % 2 === 0 ? 'even' : 'odd'}" style="left: ${startOffset}%; width: ${width}%;"></div>`;
       });
@@ -669,17 +723,18 @@
       // Add month grid lines
       months.forEach(month => {
         const monthDate = new Date(month);
-        const offset = ((monthDate - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+        const offset = clamp01(((monthDate - minDate) / MS_PER_DAY) / totalDays * 100);
         html += `<div class="grid-line month" style="left: ${offset}%;"></div>`;
       });
       
-      // Add week grid lines
+      // Add week grid lines (not appending visually by default)
       const currentWeek = new Date(minDate);
       currentWeek.setDate(currentWeek.getDate() - currentWeek.getDay()); // Start from Sunday
       
       while (currentWeek <= maxDate) {
-        const offset = ((currentWeek - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+        const offset = ((currentWeek - minDate) / MS_PER_DAY) / totalDays * 100;
         if (offset >= 0 && offset <= 100) {
+         // optionally show weeks
          // html += `<div class="grid-line week" style="left: ${offset}%;"></div>`;
         }
         currentWeek.setDate(currentWeek.getDate() + 7);
@@ -705,9 +760,11 @@
           group.forEach(task => {
             const taskStart = new Date(task.startDate);
             const taskEnd = getEndDate(task.startDate, task.duration);
+
+            if (isNaN(taskStart) || isNaN(taskEnd)) return;
             
-            const startOffset = ((taskStart - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-            const duration = ((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+            const startOffset = clamp01(((taskStart - minDate) / MS_PER_DAY) / totalDays * 100);
+            const duration = clamp01(((taskEnd - taskStart) / MS_PER_DAY) / totalDays * 100);
 
             html += `
               <div class="task-bar" style="left: ${startOffset}%; width: ${duration}%; background: ${task.color};" 
@@ -726,9 +783,24 @@
         tasks.forEach(task => {
           const taskStart = new Date(task.startDate);
           const taskEnd = getEndDate(task.startDate, task.duration);
+
+          if (isNaN(taskStart) || isNaN(taskEnd)) {
+            // show placeholder row but skip rendering task bar to avoid NaN styles
+            html += `
+              <div class="timeline-row" draggable="true" data-task-id="${task.id}" 
+                   ondragstart="handleDragStart(event)" 
+                   ondragover="handleDragOver(event)" 
+                   ondrop="handleDrop(event)" 
+                   ondragend="handleDragEnd(event)">
+                <span class="drag-handle">⋮⋮</span>
+                <div style="margin-left: 40px; color:#a0aec0">Invalid date</div>
+              </div>
+            `;
+            return;
+          }
           
-          const startOffset = ((taskStart - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-          const duration = ((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+          const startOffset = clamp01(((taskStart - minDate) / MS_PER_DAY) / totalDays * 100);
+          const duration = clamp01(((taskEnd - taskStart) / MS_PER_DAY) / totalDays * 100);
 
           html += `
             <div class="timeline-row" draggable="true" data-task-id="${task.id}" 
@@ -757,9 +829,11 @@
       if (!task) return;
 
       editingTaskId = taskId;
-      document.getElementById('editTitle').value = task.title;
-      document.getElementById('editStartDate').value = task.startDate;
-      document.getElementById('editDuration').value = task.duration;
+      document.getElementById('editTitle').value = task.title || '';
+      // normalize into YYYY-MM-DD so the date input is always set correctly
+      document.getElementById('editStartDate').value = toISODate(task.startDate) || '';
+
+      document.getElementById('editDuration').value = Number.isFinite(task.duration) && task.duration > 0 ? task.duration : '';
 
       const colorOptions = document.getElementById('colorOptions');
       colorOptions.innerHTML = colors.map(color => 
@@ -781,7 +855,7 @@
       document.querySelectorAll('.color-option').forEach(el => {
         el.classList.remove('selected');
       });
-      const selectedEl = document.querySelector(`.color-option[style*="${color}"]`);
+      const selectedEl = document.querySelector(`.color-option[data-color="${color}"]`);
       if (selectedEl) {
         selectedEl.classList.add('selected');
       }
@@ -791,9 +865,28 @@
       const task = tasks.find(t => t.id === editingTaskId);
       if (!task) return;
 
-      task.title = document.getElementById('editTitle').value.trim();
-      task.startDate = document.getElementById('editStartDate').value;
-      task.duration = parseInt(document.getElementById('editDuration').value);
+      const newTitle = document.getElementById('editTitle').value.trim();
+      const newStartRaw = document.getElementById('editStartDate').value;
+      const newDuration = parseInt(document.getElementById('editDuration').value);
+
+      const newStart = toISODate(newStartRaw);
+
+      if (!newTitle) {
+        alert('Title cannot be empty');
+        return;
+      }
+      if (!newStart) {
+        alert('Please provide a valid start date (YYYY-MM-DD)');
+        return;
+      }
+      if (!Number.isFinite(newDuration) || newDuration < 1) {
+        alert('Please provide a valid duration (weeks, >= 1)');
+        return;
+      }
+
+      task.title = newTitle;
+      task.startDate = newStart;
+      task.duration = newDuration;
       
       const selectedColor = document.querySelector('.color-option.selected');
       if (selectedColor) {
