@@ -1,267 +1,794 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Radial Gantt – Premium UI</title>
-<style>
-    * {
-        margin: 0; padding: 0; box-sizing: border-box;
-        font-family: "Inter", Arial, sans-serif;
-    }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roadmap Timeline</title>
+  <style>
+   /* -------------------------------------------------------
+   GLOBAL RESET
+------------------------------------------------------- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-    body {
-        display: flex;
-        height: 100vh;
-        background: #f4f6fa;
-        color: #1a1a1a;
-        overflow: hidden;
-    }
+/* -------------------------------------------------------
+   THEME VARIABLES (EASY TWEAKS)
+------------------------------------------------------- */
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --text: #1f2937;
+  --text-muted: #6b7280;
 
-    /* SIDEBAR */
-    .sidebar {
-        width: 280px;
-        background: white;
-        padding: 30px 25px;
-        border-right: 1px solid #e2e5ec;
-        display: flex;
-        flex-direction: column;
-        gap: 35px;
-    }
-    .sidebar h2 {
-        font-size: 22px;
-        font-weight: 700;
-    }
-    .sidebar .section {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-    .sidebar label {
-        color: #555;
-        font-size: 14px;
-    }
-    .sidebar select, .sidebar input {
-        width: 100%;
-        padding: 10px 12px;
-        border-radius: 10px;
-        border: 1px solid #dcdfe6;
-        font-size: 14px;
-    }
-    .sidebar button {
-        margin-top: 18px;
-        padding: 12px;
-        border-radius: 12px;
-        border: none;
-        background: #2476ff;
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-        transition: 0.15s;
-    }
-    .sidebar button:hover {
-        background: #0d5bf8;
-    }
+  --primary: #3b82f6;
+  --high: #ef4444;
+  --medium: #f59e0b;
+  --low: #10b981;
 
-    /* MAIN AREA */
-    .main {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
+  --radius: 12px;
+  --shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
 
-    /* TOP NAVBAR */
-    .topbar {
-        height: 70px;
-        background: white;
-        border-bottom: 1px solid #e2e5ec;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 35px;
-    }
+/* -------------------------------------------------------
+   LAYOUT
+------------------------------------------------------- */
+body {
+  font-family: "Inter", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 24px;
+}
 
-    .topbar h1 {
-        font-size: 22px;
-        font-weight: 700;
-    }
+/* -------------------------------------------------------
+   HEADER / TOP CONTROLS
+------------------------------------------------------- */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
 
-    /* CONTENT */
-    .content {
-        flex: 1;
-        padding: 40px;
-        display: flex;
-        gap: 40px;
-    }
+.controls input,
+.controls select,
+.controls button {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text);
+}
 
-    /* RADIAL GANTT PANEL */
-    .gantt-container {
-        flex: 2.5;
-        background: white;
-        border-radius: 30px;
-        padding: 40px;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
+.controls button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
 
-    .circle {
-        width: 520px;
-        height: 520px;
-        border-radius: 50%;
-        border: 30px solid #eef1f7;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
+.controls button:hover {
+  background: #2563eb;
+}
 
-    /* TASK ARC (for demonstration only — not data-driven yet) */
-    .task {
-        position: absolute;
-        width: 450px;
-        height: 450px;
-        border-radius: 50%;
-        clip-path: polygon(50% 50%, 100% 0, 100% 100%);
-        transform-origin: center;
-        opacity: 0.9;
-        animation: fadeIn 0.8s ease-out;
-    }
+/* -------------------------------------------------------
+   TIMELINE WRAPPER
+------------------------------------------------------- */
+.timeline-container {
+  display: flex;
+  gap: 20px;
+}
 
-    @keyframes fadeIn {
-        from { opacity: 0; transform: scale(0.97); }
-        to   { opacity: 1; transform: scale(1); }
-    }
+/* -------------------------------------------------------
+   SIDEBAR
+------------------------------------------------------- */
+.sidebar {
+  width: 320px;
+  padding: 20px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
 
-    /* COLOR PALETTE */
-    .p1 { background: #ff4f70; }      /* high priority */
-    .p2 { background: #ffb04f; }      /* medium */
-    .p3 { background: #3ed598; }      /* low */
-    .p4 { background: #7289ff; }      /* default */
+.sidebar h3 {
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
 
-    /* RIGHT PANEL */
-    .right-panel {
-        width: 350px;
-        display: flex;
-        flex-direction: column;
-        gap: 30px;
-    }
+.sidebar input,
+.sidebar select {
+  width: 100%;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
 
-    .card {
-        background: white;
-        border-radius: 22px;
-        padding: 25px;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-    }
+/* -------------------------------------------------------
+   TIMELINE CANVAS AREA
+------------------------------------------------------- */
+.timeline-wrapper {
+  flex-grow: 1;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 20px;
+  position: relative;
+}
 
-    .card h3 {
-        font-size: 18px;
-        margin-bottom: 12px;
-        font-weight: 700;
-    }
+/* -------------------------------------------------------
+   MONTH + WEEK LABELS
+------------------------------------------------------- */
+.month-label {
+  position: absolute;
+  top: 0;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
 
-    .task-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 0;
-        border-bottom: 1px solid #eee;
-    }
+.week-label {
+  position: absolute;
+  top: 28px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
 
-    .task-item:last-child {
-        border-bottom: none;
-    }
+/* -------------------------------------------------------
+   TASK BAR STYLING
+------------------------------------------------------- */
+.task {
+  position: absolute;
+  height: 28px;
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: white;
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
 
-    .dot {
-        width: 14px; height: 14px;
-        border-radius: 50%;
-        margin-right: 10px;
-    }
+.task:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
 
-</style>
+/* Priority colors */
+.task.high { background: var(--high); }
+.task.medium { background: var(--medium); }
+.task.low { background: var(--low); }
+
+/* -------------------------------------------------------
+   HOVER POP
+------------------------------------------------------- */
+.task:hover {
+  box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+/* -------------------------------------------------------
+   GUIDELINES (DAYS / WEEKS)
+------------------------------------------------------- */
+.timeline-grid .day-line {
+  width: 1px;
+  background: #e5e7eb;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  opacity: 0.5;
+}
+
+.timeline-grid .week-line {
+  width: 2px;
+  background: #cbd5e1;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  opacity: 0.8;
+}
+
+/* -------------------------------------------------------
+   MISC CLEANUP
+------------------------------------------------------- */
+.task .label {
+  font-weight: 500;
+}
+
+.dragging {
+  opacity: 0.7;
+  transform: scale(0.97);
+}
+
+  </style>
 </head>
-
 <body>
-
-<!-- SIDEBAR -->
-<div class="sidebar">
-    <h2>Controls</h2>
-
-    <div class="section">
-        <label>Filter by Priority</label>
-        <select>
-            <option>All</option>
-            <option>High</option>
-            <option>Medium</option>
-            <option>Low</option>
-        </select>
+  <div class="container">
+    
+    <div class="controls">
+      <input type="text" id="taskTitle" placeholder="Task title" style="flex: 2; min-width: 200px;">
+      <input type="date" id="startDate">
+      <input type="number" id="duration" placeholder="Weeks" min="1" style="width: 100px;">
+      <button onclick="addTask()">+ Add Task</button>
+      <input type="file" id="csvFile" accept=".csv" style="display: none;" onchange="importCSV(event)">
+      <button onclick="document.getElementById('csvFile').click()">📁 Import CSV</button>
+      <div class="compact-toggle">
+        <input type="checkbox" id="compactMode" onchange="toggleCompactMode()">
+        <label for="compactMode">Compact View</label>
+      </div>
     </div>
 
-    <div class="section">
-        <label>Zoom</label>
-        <input type="range" min="50" max="150" value="100">
+    <div class="timeline-container">
+      <div id="timeline" class="timeline"></div>
     </div>
 
-    <button>Reset View</button>
-</div>
-
-<!-- MAIN -->
-<div class="main">
-
-    <!-- TOP NAV -->
-    <div class="topbar">
-        <h1>Radial Task Timeline</h1>
+    <div id="tooltip" class="tooltip">
+      <div class="tooltip-title"></div>
+      <div class="tooltip-dates"></div>
     </div>
+  </div>
 
-    <!-- CONTENT -->
-    <div class="content">
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <h2>Task Details</h2>
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" id="editTitle">
+      </div>
+      <div class="form-group">
+        <label>Start Date</label>
+        <input type="date" id="editStartDate">
+      </div>
+      <div class="form-group">
+        <label>Duration (weeks)</label>
+        <input type="number" id="editDuration" min="1">
+      </div>
+      <div class="form-group">
+        <label>Color</label>
+        <div class="color-options" id="colorOptions"></div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn-save" onclick="saveTask()">Save</button>
+        <button class="btn-delete" onclick="deleteTask()">Delete</button>
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-        <!-- GANTT CHART -->
-        <div class="gantt-container">
-            <div class="circle"></div>
+  <script>
+    const colors = [
+      '#667eea', '#f093fb', '#4facfe', '#fa709a', '#ff6b6b',
+      '#c44569', '#f8b500', '#48bb78', '#ed8936', '#9f7aea'
+    ];
 
-            <!-- Sample arcs (static for now) -->
-            <div class="task p1" style="transform: rotate(0deg) skewY(-30deg);"></div>
-            <div class="task p2" style="transform: rotate(60deg) skewY(-25deg);"></div>
-            <div class="task p3" style="transform: rotate(140deg) skewY(-18deg);"></div>
-            <div class="task p4" style="transform: rotate(220deg) skewY(-35deg);"></div>
-        </div>
+    let tasks = [];
+    let editingTaskId = null;
+    let compactMode = false;
+    const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-        <!-- RIGHT PANEL -->
-        <div class="right-panel">
+    // Normalize to YYYY-MM-DD where possible
+    function toISODate(value) {
+      if (!value) return '';
+      // already ISO-like
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+      const parsed = new Date(value);
+      if (isNaN(parsed)) return '';
+      return parsed.toISOString().slice(0, 10);
+    }
 
-            <div class="card">
-                <h3>Task Legend</h3>
+    function loadTasks() {
+      try {
+        const stored = JSON.parse(localStorage.getItem('roadmapTasks') || '[]');
+        // normalize dates stored from inconsistent sources
+        tasks = (Array.isArray(stored) ? stored : []).map(t => {
+          // if any task has a startDate that can be parsed, convert to YYYY-MM-DD
+          const normalized = toISODate(t.startDate) || t.startDate || '';
+          return {
+            id: t.id,
+            title: t.title || '',
+            startDate: normalized,
+            duration: Number.isFinite(t.duration) ? t.duration : parseInt(t.duration) || 0,
+            color: t.color || colors[Math.floor(Math.random() * colors.length)]
+          };
+        });
+      } catch (err) {
+        tasks = [];
+      }
+      renderTimeline();
+    }
 
-                <div class="task-item">
-                    <span><span class="dot" style="background:#ff4f70"></span> High Priority</span>
-                </div>
-                <div class="task-item">
-                    <span><span class="dot" style="background:#ffb04f"></span> Medium Priority</span>
-                </div>
-                <div class="task-item">
-                    <span><span class="dot" style="background:#3ed598"></span> Low Priority</span>
-                </div>
-                <div class="task-item">
-                    <span><span class="dot" style="background:#7289ff"></span> Default</span>
-                </div>
+    function saveTasks() {
+      localStorage.setItem('roadmapTasks', JSON.stringify(tasks));
+    }
+
+    function importCSV(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+
+        // Skip header row if present (simple heuristic: detect "title" or "start" in first row)
+        let startIndex = 0;
+        if (lines.length && /title/i.test(lines[0]) && /start/i.test(lines[0])) {
+          startIndex = 1;
+        }
+
+        for (let i = startIndex; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          // handle CSV with commas inside quotes (basic)
+          const parts = line.split(',').map(p => p.trim().replace(/^["']|["']$/g, ''));
+
+          if (parts.length >= 3) {
+            const title = parts[0];
+            const rawStart = parts[1];
+            const duration = parseInt(parts[2]);
+
+            const isoDate = toISODate(rawStart);
+
+            // Only import when we have sane values
+            if (title && isoDate && Number.isFinite(duration) && duration > 0) {
+              tasks.push({
+                id: Date.now() + i,
+                title,
+                startDate: isoDate,
+                duration,
+                color: colors[Math.floor(Math.random() * colors.length)]
+              });
+            }
+          }
+        }
+
+        saveTasks();
+        renderTimeline();
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    function addTask() {
+      const title = document.getElementById('taskTitle').value.trim();
+      const startDateRaw = document.getElementById('startDate').value;
+      const duration = parseInt(document.getElementById('duration').value);
+
+      const startDate = toISODate(startDateRaw);
+
+      if (!title || !startDate || !Number.isFinite(duration) || duration < 1) {
+        alert('Please fill in all fields with valid values');
+        return;
+      }
+
+      const task = {
+        id: Date.now(),
+        title,
+        startDate,
+        duration,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      };
+
+      tasks.push(task);
+      saveTasks();
+      renderTimeline();
+
+      document.getElementById('taskTitle').value = '';
+      document.getElementById('startDate').value = '';
+      document.getElementById('duration').value = '';
+    }
+
+    function getEndDate(startDate, weeks) {
+      const date = new Date(startDate);
+      if (isNaN(date)) return new Date(NaN);
+      date.setDate(date.getDate() + (Number.isFinite(weeks) ? weeks * 7 : 0));
+      return date;
+    }
+
+    function formatDate(date) {
+      if (!(date instanceof Date) || isNaN(date)) return 'Invalid date';
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+
+    function showTooltip(e, task) {
+      const tooltip = document.getElementById('tooltip');
+      const tooltipTitle = tooltip.querySelector('.tooltip-title');
+      const tooltipDates = tooltip.querySelector('.tooltip-dates');
+
+      const startDate = new Date(task.startDate);
+      const endDate = getEndDate(task.startDate, task.duration);
+
+      tooltipTitle.textContent = task.title || '';
+      tooltipDates.textContent = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+
+      tooltip.style.left = (e.pageX + 10) + 'px';
+      tooltip.style.top = (e.pageY + 10) + 'px';
+      tooltip.classList.add('visible');
+    }
+
+    function hideTooltip() {
+      const tooltip = document.getElementById('tooltip');
+      tooltip.classList.remove('visible');
+    }
+
+    function toggleCompactMode() {
+      compactMode = document.getElementById('compactMode').checked;
+      renderTimeline();
+    }
+
+    function tasksOverlap(task1, task2) {
+      const start1 = new Date(task1.startDate);
+      const end1 = getEndDate(task1.startDate, task1.duration);
+      const start2 = new Date(task2.startDate);
+      const end2 = getEndDate(task2.startDate, task2.duration);
+
+      if (isNaN(start1) || isNaN(end1) || isNaN(start2) || isNaN(end2)) return false;
+      
+      return start1 < end2 && start2 < end1;
+    }
+
+    function groupTasksForCompactView(tasks) {
+      // Sort tasks by start date
+      const sortedTasks = [...tasks].sort((a, b) => 
+        new Date(a.startDate) - new Date(b.startDate)
+      );
+      
+      const groups = [];
+      
+      sortedTasks.forEach(task => {
+        let placed = false;
+        
+        // Try to place in existing group
+        for (let group of groups) {
+          let canPlace = true;
+          
+          // Check if task overlaps with any task in this group
+          for (let groupTask of group) {
+            if (tasksOverlap(task, groupTask)) {
+              canPlace = false;
+              break;
+            }
+          }
+          
+          if (canPlace) {
+            group.push(task);
+            placed = true;
+            break;
+          }
+        }
+        
+        // If couldn't place in any group, create new group
+        if (!placed) {
+          groups.push([task]);
+        }
+      });
+      
+      return groups;
+    }
+
+    function getMonthsBetween(start, end) {
+      const months = [];
+      const current = new Date(start.getFullYear(), start.getMonth(), 1);
+      const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+
+      while (current <= endMonth) {
+        months.push(new Date(current));
+        current.setMonth(current.getMonth() + 1);
+      }
+
+      return months;
+    }
+
+    function clamp01(v) {
+      return Math.max(0, Math.min(100, v));
+    }
+
+    function renderTimeline() {
+      const timeline = document.getElementById('timeline');
+      
+      if (!tasks || tasks.length === 0) {
+        timeline.innerHTML = `
+          <div class="empty-state">
+            <svg fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 [...]"/>
+            <p>No tasks yet. Add your first task to get started!</p>
+          </div>
+        `;
+        return;
+      }
+
+      const allDates = tasks.flatMap(t => {
+        const s = new Date(t.startDate);
+        const e = getEndDate(t.startDate, t.duration);
+        return [s, e];
+      }).filter(d => d instanceof Date && !isNaN(d));
+
+      if (allDates.length === 0) {
+        timeline.innerHTML = `<div class="empty-state"><p>All task dates are invalid. Please fix task dates.</p></div>`;
+        return;
+      }
+
+      const minDate = new Date(Math.min(...allDates));
+      const maxDate = new Date(Math.max(...allDates));
+      
+      minDate.setDate(minDate.getDate() - 7);
+      maxDate.setDate(maxDate.getDate() + 7);
+
+      // prevent division by zero
+      let totalDays = (maxDate - minDate) / MS_PER_DAY;
+      if (!Number.isFinite(totalDays) || totalDays <= 0) totalDays = 1;
+
+      const months = getMonthsBetween(minDate, maxDate);
+
+      // Start building HTML with grid
+      let html = '<div class="timeline-grid">';
+      
+      // Add month backgrounds
+      months.forEach((month, index) => {
+        const monthStart = new Date(month);
+        const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+        
+        const startOffset = clamp01(((monthStart - minDate) / MS_PER_DAY) / totalDays * 100);
+        const endOffset = clamp01(((monthEnd - minDate) / MS_PER_DAY) / totalDays * 100);
+        const width = Math.max(0, endOffset - startOffset);
+        
+        html += `<div class="month-background ${index % 2 === 0 ? 'even' : 'odd'}" style="left: ${startOffset}%; width: ${width}%;"></div>`;
+      });
+      
+      // Add month grid lines
+      months.forEach(month => {
+        const monthDate = new Date(month);
+        const offset = clamp01(((monthDate - minDate) / MS_PER_DAY) / totalDays * 100);
+        html += `<div class="grid-line month" style="left: ${offset}%;"></div>`;
+      });
+      
+      // Add week grid lines (not appending visually by default)
+      const currentWeek = new Date(minDate);
+      currentWeek.setDate(currentWeek.getDate() - currentWeek.getDay()); // Start from Sunday
+      
+      while (currentWeek <= maxDate) {
+        const offset = ((currentWeek - minDate) / MS_PER_DAY) / totalDays * 100;
+        if (offset >= 0 && offset <= 100) {
+         // optionally show weeks
+         // html += `<div class="grid-line week" style="left: ${offset}%;"></div>`;
+        }
+        currentWeek.setDate(currentWeek.getDate() + 7);
+      }
+      
+      html += '</div>';
+      
+      // Add timeline header
+      html += '<div class="timeline-content">';
+      html += '<div class="timeline-header">';
+      months.forEach(month => {
+        const monthName = month.toLocaleString('default', { month: 'short', year: 'numeric' });
+        html += `<div class="timeline-month">${monthName}</div>`;
+      });
+      html += '</div>';
+
+      if (compactMode) {
+        const groups = groupTasksForCompactView(tasks);
+        
+        groups.forEach(group => {
+          html += '<div class="timeline-row" style="position: relative; height: 36px; margin-bottom: 8px;">';
+          
+          group.forEach(task => {
+            const taskStart = new Date(task.startDate);
+            const taskEnd = getEndDate(task.startDate, task.duration);
+
+            if (isNaN(taskStart) || isNaN(taskEnd)) return;
+            
+            const startOffset = clamp01(((taskStart - minDate) / MS_PER_DAY) / totalDays * 100);
+            const duration = clamp01(((taskEnd - taskStart) / MS_PER_DAY) / totalDays * 100);
+
+            html += `
+              <div class="task-bar" style="left: ${startOffset}%; width: ${duration}%; background: ${task.color};" 
+                   onclick="openModal(${task.id})"
+                   onmouseenter="showTooltip(event, ${JSON.stringify(task).replace(/"/g, '&quot;')})"
+                   onmousemove="showTooltip(event, ${JSON.stringify(task).replace(/"/g, '&quot;')})"
+                   onmouseleave="hideTooltip()">
+                <div class="task-title">${task.title}</div>
+              </div>
+            `;
+          });
+          
+          html += '</div>';
+        });
+      } else {
+        tasks.forEach(task => {
+          const taskStart = new Date(task.startDate);
+          const taskEnd = getEndDate(task.startDate, task.duration);
+
+          if (isNaN(taskStart) || isNaN(taskEnd)) {
+            // show placeholder row but skip rendering task bar to avoid NaN styles
+            html += `
+              <div class="timeline-row" draggable="true" data-task-id="${task.id}" 
+                   ondragstart="handleDragStart(event)" 
+                   ondragover="handleDragOver(event)" 
+                   ondrop="handleDrop(event)" 
+                   ondragend="handleDragEnd(event)">
+                <span class="drag-handle">⋮⋮</span>
+                <div style="margin-left: 40px; color:#a0aec0">Invalid date</div>
+              </div>
+            `;
+            return;
+          }
+          
+          const startOffset = clamp01(((taskStart - minDate) / MS_PER_DAY) / totalDays * 100);
+          const duration = clamp01(((taskEnd - taskStart) / MS_PER_DAY) / totalDays * 100);
+
+          html += `
+            <div class="timeline-row" draggable="true" data-task-id="${task.id}" 
+                 ondragstart="handleDragStart(event)" 
+                 ondragover="handleDragOver(event)" 
+                 ondrop="handleDrop(event)" 
+                 ondragend="handleDragEnd(event)">
+              <span class="drag-handle">⋮⋮</span>
+              <div class="task-bar" style="left: ${startOffset}%; width: ${duration}%; background: ${task.color};" 
+                   onclick="openModal(${task.id})"
+                   onmouseenter="showTooltip(event, ${JSON.stringify(task).replace(/"/g, '&quot;')})"
+                   onmousemove="showTooltip(event, ${JSON.stringify(task).replace(/"/g, '&quot;')})"
+                   onmouseleave="hideTooltip()">
+                <div class="task-title">${task.title}</div>
+              </div>
             </div>
+          `;
+        });
+      }
 
-            <div class="card">
-                <h3>Upcoming Tasks</h3>
+      timeline.innerHTML = html;
+    }
 
-                <div class="task-item"><span>Task A</span> <strong>Jan 05</strong></div>
-                <div class="task-item"><span>Task B</span> <strong>Jan 17</strong></div>
-                <div class="task-item"><span>Task C</span> <strong>Feb 02</strong></div>
-                <div class="task-item"><span>Task D</span> <strong>Feb 19</strong></div>
-            </div>
+    function openModal(taskId) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) return;
 
-        </div>
+      editingTaskId = taskId;
+      document.getElementById('editTitle').value = task.title || '';
+      // normalize into YYYY-MM-DD so the date input is always set correctly
+      document.getElementById('editStartDate').value = toISODate(task.startDate) || '';
 
-    </div>
+      document.getElementById('editDuration').value = Number.isFinite(task.duration) && task.duration > 0 ? task.duration : '';
 
-</div>
+      const colorOptions = document.getElementById('colorOptions');
+      colorOptions.innerHTML = colors.map(color => 
+        `<div class="color-option ${color === task.color ? 'selected' : ''}" 
+              style="background: ${color}" 
+              data-color="${color}"
+              onclick="selectColor('${color}')"></div>`
+      ).join('');
 
+      document.getElementById('modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+      editingTaskId = null;
+    }
+
+    function selectColor(color) {
+      document.querySelectorAll('.color-option').forEach(el => {
+        el.classList.remove('selected');
+      });
+      const selectedEl = document.querySelector(`.color-option[data-color="${color}"]`);
+      if (selectedEl) {
+        selectedEl.classList.add('selected');
+      }
+    }
+
+    function saveTask() {
+      const task = tasks.find(t => t.id === editingTaskId);
+      if (!task) return;
+
+      const newTitle = document.getElementById('editTitle').value.trim();
+      const newStartRaw = document.getElementById('editStartDate').value;
+      const newDuration = parseInt(document.getElementById('editDuration').value);
+
+      const newStart = toISODate(newStartRaw);
+
+      if (!newTitle) {
+        alert('Title cannot be empty');
+        return;
+      }
+      if (!newStart) {
+        alert('Please provide a valid start date (YYYY-MM-DD)');
+        return;
+      }
+      if (!Number.isFinite(newDuration) || newDuration < 1) {
+        alert('Please provide a valid duration (weeks, >= 1)');
+        return;
+      }
+
+      task.title = newTitle;
+      task.startDate = newStart;
+      task.duration = newDuration;
+      
+      const selectedColor = document.querySelector('.color-option.selected');
+      if (selectedColor) {
+        task.color = selectedColor.getAttribute('data-color');
+      }
+
+      saveTasks();
+      renderTimeline();
+      closeModal();
+    }
+
+    let draggedTaskId = null;
+
+    function handleDragStart(e) {
+      draggedTaskId = parseInt(e.currentTarget.dataset.taskId);
+      e.currentTarget.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+      if (e.preventDefault) {
+        e.preventDefault();
+      }
+      e.currentTarget.classList.add('drag-over');
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    }
+
+    function handleDrop(e) {
+      if (e.stopPropagation) {
+        e.stopPropagation();
+      }
+      
+      const dropTaskId = parseInt(e.currentTarget.dataset.taskId);
+      
+      if (draggedTaskId !== dropTaskId) {
+        const draggedIndex = tasks.findIndex(t => t.id === draggedTaskId);
+        const dropIndex = tasks.findIndex(t => t.id === dropTaskId);
+        
+        const draggedTask = tasks[draggedIndex];
+        tasks.splice(draggedIndex, 1);
+        tasks.splice(dropIndex, 0, draggedTask);
+        
+        saveTasks();
+        renderTimeline();
+      }
+      
+      return false;
+    }
+
+    function handleDragEnd(e) {
+      e.currentTarget.classList.remove('dragging');
+      document.querySelectorAll('.timeline-row').forEach(row => {
+        row.classList.remove('drag-over');
+      });
+    }
+
+    function deleteTask() {
+      if (!confirm('Are you sure you want to delete this task?')) return;
+      
+      tasks = tasks.filter(t => t.id !== editingTaskId);
+      saveTasks();
+      renderTimeline();
+      closeModal();
+    }
+
+    document.getElementById('modal').addEventListener('click', (e) => {
+      if (e.target.id === 'modal') closeModal();
+    });
+
+    loadTasks();
+  </script>
 </body>
 </html>
