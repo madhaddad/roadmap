@@ -16,12 +16,12 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       background: linear-gradient(135deg, #f5f7fa 0%, #f0f2f5 100%);
       min-height: 100vh;
-      padding: 20px;
+      /* padding: 20px; */
     }
 
     .container {
-      max-width: 1400px;
-      margin: 0 auto;
+      /* max-width: 1400px; */
+      /* margin: 0 auto; */
       background: white;
       border-radius: 16px;
       padding: 30px;
@@ -610,6 +610,31 @@
       transform: translateY(-50%);
     }
 
+    .zoom-center-handle {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: white;
+      border: 2px solid #667eea;
+      border-radius: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      cursor: grab;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+      transition: box-shadow 0.2s ease;
+      pointer-events: auto;
+    }
+
+    .zoom-center-handle:hover {
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .zoom-center-handle.dragging {
+      cursor: grabbing;
+      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+    }
+
     .zoom-values {
       display: flex;
       gap: 4px;
@@ -729,8 +754,8 @@
       <button onclick="document.getElementById('csvFile').click()">📁 Import CSV</button>
       <button class="btn-milestone" onclick="openAddMilestoneModal()">🚩 Add Milestone</button>
       <div class="compact-toggle">
-        <input type="checkbox" id="compactMode" onchange="toggleCompactMode()">
-        <label for="compactMode">Compact View</label>
+        <input type="checkbox" id="expandedMode" onchange="toggleCompactMode()">
+        <label for="expandedMode">Expanded View</label>
       </div>
     </div>
 
@@ -749,6 +774,7 @@
             <div class="zoom-range-track">
               <div class="zoom-range-fill" id="zoomRangeFill"></div>
             </div>
+            <div class="zoom-center-handle" id="zoomCenterHandle"></div>
             <input type="range" id="zoomStartSlider" class="zoom-slider" min="0" max="100" value="0"
               oninput="updateZoomStart(this.value)">
             <input type="range" id="zoomEndSlider" class="zoom-slider" min="0" max="100" value="100"
@@ -848,7 +874,7 @@
     let milestones = [];
     let editingTaskId = null;
     let editingMilestoneId = null;
-    let compactMode = false;
+    let compactMode = true;
     let zoomStartMonth = null;
     let zoomEndMonth = null;
     let availableMonths = [];
@@ -1159,7 +1185,7 @@
     }
 
     function toggleCompactMode() {
-      compactMode = document.getElementById('compactMode').checked;
+      compactMode = !document.getElementById('expandedMode').checked;
       renderTimeline();
     }
 
@@ -1547,6 +1573,18 @@
       const startSlider = document.getElementById('zoomStartSlider');
       const endSlider = document.getElementById('zoomEndSlider');
       const zoomTrack = document.querySelector('.zoom-track');
+      const centerHandle = document.getElementById('zoomCenterHandle');
+      let isDraggingCenter = false;
+      let dragStartX = 0;
+      let dragStartStartVal = 0;
+      let dragStartEndVal = 0;
+
+      function updateCenterHandlePosition() {
+        const startVal = parseInt(startSlider.value);
+        const endVal = parseInt(endSlider.value);
+        const centerPos = (startVal + endVal) / 2;
+        centerHandle.style.left = centerPos + '%';
+      }
 
       function updateZIndexBasedOnPosition(clientX) {
         if (!zoomTrack) return;
@@ -1570,44 +1608,162 @@
         }
       }
 
+      // Center handle drag functionality
+      centerHandle.addEventListener('mousedown', (e) => {
+        isDraggingCenter = true;
+        dragStartX = e.clientX;
+        dragStartStartVal = parseInt(startSlider.value);
+        dragStartEndVal = parseInt(endSlider.value);
+        centerHandle.classList.add('dragging');
+        e.preventDefault();
+      });
+
+      centerHandle.addEventListener('touchstart', (e) => {
+        isDraggingCenter = true;
+        dragStartX = e.touches[0].clientX;
+        dragStartStartVal = parseInt(startSlider.value);
+        dragStartEndVal = parseInt(endSlider.value);
+        centerHandle.classList.add('dragging');
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (isDraggingCenter) {
+          const trackRect = zoomTrack.getBoundingClientRect();
+          const delta = e.clientX - dragStartX;
+          const deltaPercent = (delta / trackRect.width) * 100;
+          
+          const newStart = dragStartStartVal + deltaPercent;
+          const newEnd = dragStartEndVal + deltaPercent;
+          const rangeSize = dragStartEndVal - dragStartStartVal;
+
+          // Clamp to bounds
+          if (newStart >= 0 && newEnd <= 100) {
+            startSlider.value = Math.round(newStart);
+            endSlider.value = Math.round(newEnd);
+            updateZoomRangeFill();
+            updateCenterHandlePosition();
+            
+            // Update zoom values
+            const startIdx = Math.floor((parseInt(startSlider.value) / 100) * availableMonths.length);
+            const endIdx = Math.floor((parseInt(endSlider.value) / 100) * availableMonths.length);
+            
+            if (startIdx >= 0 && startIdx < availableMonths.length) {
+              zoomStartMonth = availableMonths[startIdx];
+              const startStr = zoomStartMonth.toLocaleString('default', {month: 'short', year: 'numeric'});
+              document.getElementById('zoomStartValue').textContent = startStr;
+            }
+            if (endIdx >= 0 && endIdx < availableMonths.length) {
+              zoomEndMonth = availableMonths[endIdx];
+              const endStr = zoomEndMonth.toLocaleString('default', {month: 'short', year: 'numeric'});
+              document.getElementById('zoomEndValue').textContent = endStr;
+            }
+            
+            renderTimeline();
+          }
+        }
+        if (!isDraggingCenter) {
+          updateZIndexBasedOnPosition(e.clientX);
+        }
+      });
+
+      document.addEventListener('touchmove', (e) => {
+        if (isDraggingCenter) {
+          const trackRect = zoomTrack.getBoundingClientRect();
+          const delta = e.touches[0].clientX - dragStartX;
+          const deltaPercent = (delta / trackRect.width) * 100;
+          
+          const newStart = dragStartStartVal + deltaPercent;
+          const newEnd = dragStartEndVal + deltaPercent;
+          const rangeSize = dragStartEndVal - dragStartStartVal;
+
+          // Clamp to bounds
+          if (newStart >= 0 && newEnd <= 100) {
+            startSlider.value = Math.round(newStart);
+            endSlider.value = Math.round(newEnd);
+            updateZoomRangeFill();
+            updateCenterHandlePosition();
+            
+            // Update zoom values
+            const startIdx = Math.floor((parseInt(startSlider.value) / 100) * availableMonths.length);
+            const endIdx = Math.floor((parseInt(endSlider.value) / 100) * availableMonths.length);
+            
+            if (startIdx >= 0 && startIdx < availableMonths.length) {
+              zoomStartMonth = availableMonths[startIdx];
+              const startStr = zoomStartMonth.toLocaleString('default', {month: 'short', year: 'numeric'});
+              document.getElementById('zoomStartValue').textContent = startStr;
+            }
+            if (endIdx >= 0 && endIdx < availableMonths.length) {
+              zoomEndMonth = availableMonths[endIdx];
+              const endStr = zoomEndMonth.toLocaleString('default', {month: 'short', year: 'numeric'});
+              document.getElementById('zoomEndValue').textContent = endStr;
+            }
+            
+            renderTimeline();
+          }
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isDraggingCenter) {
+          isDraggingCenter = false;
+          centerHandle.classList.remove('dragging');
+        }
+        startSlider.style.zIndex = '5';
+        endSlider.style.zIndex = '4';
+      });
+
+      document.addEventListener('touchend', () => {
+        if (isDraggingCenter) {
+          isDraggingCenter = false;
+          centerHandle.classList.remove('dragging');
+        }
+        startSlider.style.zIndex = '5';
+        endSlider.style.zIndex = '4';
+      });
+
       zoomTrack.addEventListener('mousemove', (e) => {
-        updateZIndexBasedOnPosition(e.clientX);
+        if (!isDraggingCenter) {
+          updateZIndexBasedOnPosition(e.clientX);
+        }
       });
 
       zoomTrack.addEventListener('mouseleave', () => {
-        startSlider.style.zIndex = '5';
-        endSlider.style.zIndex = '4';
+        if (!isDraggingCenter) {
+          startSlider.style.zIndex = '5';
+          endSlider.style.zIndex = '4';
+        }
       });
 
       startSlider.addEventListener('mousedown', () => {
         startSlider.style.zIndex = '7';
         endSlider.style.zIndex = '4';
+        updateCenterHandlePosition();
       });
 
       endSlider.addEventListener('mousedown', () => {
         endSlider.style.zIndex = '7';
         startSlider.style.zIndex = '4';
-      });
-
-      document.addEventListener('mouseup', () => {
-        startSlider.style.zIndex = '5';
-        endSlider.style.zIndex = '4';
+        updateCenterHandlePosition();
       });
 
       startSlider.addEventListener('touchstart', () => {
         startSlider.style.zIndex = '7';
         endSlider.style.zIndex = '4';
+        updateCenterHandlePosition();
       });
 
       endSlider.addEventListener('touchstart', () => {
         endSlider.style.zIndex = '7';
         startSlider.style.zIndex = '4';
+        updateCenterHandlePosition();
       });
 
-      document.addEventListener('touchend', () => {
-        startSlider.style.zIndex = '5';
-        endSlider.style.zIndex = '4';
-      });
+      startSlider.addEventListener('input', updateCenterHandlePosition);
+      endSlider.addEventListener('input', updateCenterHandlePosition);
+      
+      // Initialize center handle position
+      updateCenterHandlePosition();
     }
 
     loadTasks();
