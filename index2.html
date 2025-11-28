@@ -681,13 +681,19 @@
       display: flex;
       gap: 12px;
       align-items: center;
-      justify-content: flex-end;
       margin-bottom: 20px;
       padding: 12px 16px;
       background: white;
       border: 1px solid #e8ecef;
       border-radius: 14px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .top-bar-right-section {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-left: auto;
     }
 
     .top-bar button,
@@ -739,6 +745,67 @@
       border: none;
     }
 
+    .top-bar-divider {
+      width: 1px;
+      height: 24px;
+      background: #e8ecef;
+      margin: 0 12px;
+    }
+
+    .add-task-form {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding-left: 12px;
+    }
+
+    .add-task-form input {
+      padding: 8px 12px;
+      border: 1px solid #e8ecef;
+      border-radius: 8px;
+      font-size: 13px;
+      background: #f9fafc;
+      color: #2d3748;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .add-task-form input:focus {
+      background: white;
+      border-color: #667eea;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+    }
+
+    .add-task-form input[type="text"] {
+      min-width: 200px;
+    }
+
+    .add-task-form input[type="date"] {
+      min-width: 130px;
+    }
+
+    .add-task-form input[type="number"] {
+      width: 80px;
+    }
+
+    .btn-add-task {
+      padding: 8px 14px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-add-task:hover {
+      background: #764ba2;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
     .main-content {
       display: flex;
       flex-direction: column;
@@ -750,23 +817,27 @@
 <body>
   <div class="container">
     <div class="top-bar">
-      <input type="file" id="csvFile" accept=".csv" style="display: none;" onchange="importCSV(event)">
-      <button onclick="document.getElementById('csvFile').click()">📁 Import CSV</button>
-      <button class="btn-milestone" onclick="openAddMilestoneModal()">🚩 Add Milestone</button>
-      <div class="compact-toggle">
-        <input type="checkbox" id="expandedMode" onchange="toggleCompactMode()">
-        <label for="expandedMode">Expanded View</label>
+      <div class="add-task-form">
+        <input type="text" id="taskTitle" placeholder="Task title">
+        <input type="date" id="startDate">
+        <input type="number" id="duration" placeholder="Weeks" min="1">
+        <button onclick="addTask()" class="btn-add-task">+ Add Task</button>
+      </div>
+      
+      <div class="top-bar-right-section">
+        <div class="top-bar-divider"></div>
+        
+        <input type="file" id="csvFile" accept=".csv" style="display: none;" onchange="importCSV(event)">
+        <button onclick="document.getElementById('csvFile').click()">📁 Import CSV</button>
+        <button class="btn-milestone" onclick="openAddMilestoneModal()">🚩 Add Milestone</button>
+        <div class="compact-toggle">
+          <input type="checkbox" id="expandedMode" onchange="toggleCompactMode()">
+          <label for="expandedMode">Expanded View</label>
+        </div>
       </div>
     </div>
 
     <div class="main-content">
-      <div class="controls">
-        <input type="text" id="taskTitle" placeholder="Task title" style="flex: 2; min-width: 200px;">
-        <input type="date" id="startDate">
-        <input type="number" id="duration" placeholder="Weeks" min="1" style="width: 100px;">
-        <button onclick="addTask()">+ Add Task</button>
-      </div>
-
       <div class="zoom-container">
         <span class="zoom-label">Zoom Range</span>
         <div class="zoom-slider-wrapper">
