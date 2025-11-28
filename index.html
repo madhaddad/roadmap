@@ -38,6 +38,30 @@
       gap: 10px;
       margin-bottom: 25px;
       flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .compact-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      padding: 8px 12px;
+      background: #f7fafc;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .compact-toggle input[type="checkbox"] {
+      cursor: pointer;
+    }
+
+    .compact-toggle label {
+      cursor: pointer;
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 600;
     }
 
     .controls input, .controls select, .controls button {
@@ -74,6 +98,55 @@
     .timeline {
       min-width: 800px;
       position: relative;
+      background: white;
+    }
+
+    .timeline-grid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .month-background {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      pointer-events: none;
+    }
+
+    .month-background.even {
+      background: #f7fafc;
+    }
+
+    .month-background.odd {
+      background: white;
+    }
+
+    .grid-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      pointer-events: none;
+    }
+
+    .grid-line.month {
+      background: #cbd5e0;
+      z-index: 2;
+    }
+
+    .grid-line.week {
+      background: #e2e8f0;
+      z-index: 1;
+    }
+
+    .timeline-content {
+      position: relative;
+      z-index: 3;
     }
 
     .timeline-header {
@@ -142,6 +215,36 @@
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       z-index: 5;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: #2d3748;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transition: opacity 0.2s;
+      max-width: 250px;
+      word-wrap: break-word;
+    }
+
+    .tooltip.visible {
+      opacity: 1;
+    }
+
+    .tooltip-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .tooltip-dates {
+      font-size: 11px;
+      color: #cbd5e0;
     }
 
     .task-title {
@@ -291,10 +394,19 @@
       <button onclick="addTask()">+ Add Task</button>
       <input type="file" id="csvFile" accept=".csv" style="display: none;" onchange="importCSV(event)">
       <button onclick="document.getElementById('csvFile').click()">📁 Import CSV</button>
+      <div class="compact-toggle">
+        <input type="checkbox" id="compactMode" onchange="toggleCompactMode()">
+        <label for="compactMode">Compact View</label>
+      </div>
     </div>
 
     <div class="timeline-container">
       <div id="timeline" class="timeline"></div>
+    </div>
+
+    <div id="tooltip" class="tooltip">
+      <div class="tooltip-title"></div>
+      <div class="tooltip-dates"></div>
     </div>
   </div>
 
@@ -333,6 +445,7 @@
 
     let tasks = [];
     let editingTaskId = null;
+    let compactMode = false;
 
     function loadTasks() {
       const stored = JSON.parse(localStorage.getItem('roadmapTasks') || '[]');
@@ -417,6 +530,88 @@
       return date;
     }
 
+    function formatDate(date) {
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+
+    function showTooltip(e, task) {
+      const tooltip = document.getElementById('tooltip');
+      const tooltipTitle = tooltip.querySelector('.tooltip-title');
+      const tooltipDates = tooltip.querySelector('.tooltip-dates');
+      
+      const startDate = new Date(task.startDate);
+      const endDate = getEndDate(task.startDate, task.duration);
+      
+      tooltipTitle.textContent = task.title;
+      tooltipDates.textContent = `${formatDate(startDate)} - ${formatDate(endDate)}`;
+      
+      tooltip.style.left = e.pageX + 10 + 'px';
+      tooltip.style.top = e.pageY + 10 + 'px';
+      tooltip.classList.add('visible');
+    }
+
+    function hideTooltip() {
+      const tooltip = document.getElementById('tooltip');
+      tooltip.classList.remove('visible');
+    }
+
+    function toggleCompactMode() {
+      compactMode = document.getElementById('compactMode').checked;
+      renderTimeline();
+    }
+
+    function tasksOverlap(task1, task2) {
+      const start1 = new Date(task1.startDate);
+      const end1 = getEndDate(task1.startDate, task1.duration);
+      const start2 = new Date(task2.startDate);
+      const end2 = getEndDate(task2.startDate, task2.duration);
+      
+      return start1 < end2 && start2 < end1;
+    }
+
+    function groupTasksForCompactView(tasks) {
+      // Sort tasks by start date
+      const sortedTasks = [...tasks].sort((a, b) => 
+        new Date(a.startDate) - new Date(b.startDate)
+      );
+      
+      const groups = [];
+      
+      sortedTasks.forEach(task => {
+        let placed = false;
+        
+        // Try to place in existing group
+        for (let group of groups) {
+          let canPlace = true;
+          
+          // Check if task overlaps with any task in this group
+          for (let groupTask of group) {
+            if (tasksOverlap(task, groupTask)) {
+              canPlace = false;
+              break;
+            }
+          }
+          
+          if (canPlace) {
+            group.push(task);
+            placed = true;
+            break;
+          }
+        }
+        
+        // If couldn't place in any group, create new group
+        if (!placed) {
+          groups.push([task]);
+        }
+      });
+      
+      return groups;
+    }
+
     function getMonthsBetween(start, end) {
       const months = [];
       const current = new Date(start.getFullYear(), start.getMonth(), 1);
@@ -457,33 +652,103 @@
       const months = getMonthsBetween(minDate, maxDate);
       const totalDays = (maxDate - minDate) / (1000 * 60 * 60 * 24);
 
-      let html = '<div class="timeline-header">';
+      // Start building HTML with grid
+      let html = '<div class="timeline-grid">';
+      
+      // Add month backgrounds
+      months.forEach((month, index) => {
+        const monthStart = new Date(month);
+        const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+        
+        const startOffset = ((monthStart - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+        const endOffset = ((monthEnd - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+        const width = endOffset - startOffset;
+        
+        html += `<div class="month-background ${index % 2 === 0 ? 'even' : 'odd'}" style="left: ${startOffset}%; width: ${width}%;"></div>`;
+      });
+      
+      // Add month grid lines
+      months.forEach(month => {
+        const monthDate = new Date(month);
+        const offset = ((monthDate - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+        html += `<div class="grid-line month" style="left: ${offset}%;"></div>`;
+      });
+      
+      // Add week grid lines
+      const currentWeek = new Date(minDate);
+      currentWeek.setDate(currentWeek.getDate() - currentWeek.getDay()); // Start from Sunday
+      
+      while (currentWeek <= maxDate) {
+        const offset = ((currentWeek - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+        if (offset >= 0 && offset <= 100) {
+         // html += `<div class="grid-line week" style="left: ${offset}%;"></div>`;
+        }
+        currentWeek.setDate(currentWeek.getDate() + 7);
+      }
+      
+      html += '</div>';
+      
+      // Add timeline header
+      html += '<div class="timeline-content">';
+      html += '<div class="timeline-header">';
       months.forEach(month => {
         const monthName = month.toLocaleString('default', { month: 'short', year: 'numeric' });
         html += `<div class="timeline-month">${monthName}</div>`;
       });
       html += '</div>';
 
-      tasks.forEach(task => {
-        const taskStart = new Date(task.startDate);
-        const taskEnd = getEndDate(task.startDate, task.duration);
+      if (compactMode) {
+        const groups = groupTasksForCompactView(tasks);
         
-        const startOffset = ((taskStart - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-        const duration = ((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+        groups.forEach(group => {
+          html += '<div class="timeline-row" style="position: relative; height: 36px; margin-bottom: 8px;">';
+          
+          group.forEach(task => {
+            const taskStart = new Date(task.startDate);
+            const taskEnd = getEndDate(task.startDate, task.duration);
+            
+            const startOffset = ((taskStart - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+            const duration = ((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) / totalDays * 100;
 
-        html += `
-          <div class="timeline-row" draggable="true" data-task-id="${task.id}" 
-               ondragstart="handleDragStart(event)" 
-               ondragover="handleDragOver(event)" 
-               ondrop="handleDrop(event)" 
-               ondragend="handleDragEnd(event)">
-            <span class="drag-handle">⋮⋮</span>
-            <div class="task-bar" style="left: ${startOffset}%; width: ${duration}%; background: ${task.color};" onclick="openModal(${task.id})">
-              <div class="task-title">${task.title}</div>
+            html += `
+              <div class="task-bar" style="left: ${startOffset}%; width: ${duration}%; background: ${task.color};" 
+                   onclick="openModal(${task.id})"
+                   onmouseenter="showTooltip(event, ${JSON.stringify(task).replace(/"/g, '&quot;')})"
+                   onmousemove="showTooltip(event, ${JSON.stringify(task).replace(/"/g, '&quot;')})"
+                   onmouseleave="hideTooltip()">
+                <div class="task-title">${task.title}</div>
+              </div>
+            `;
+          });
+          
+          html += '</div>';
+        });
+      } else {
+        tasks.forEach(task => {
+          const taskStart = new Date(task.startDate);
+          const taskEnd = getEndDate(task.startDate, task.duration);
+          
+          const startOffset = ((taskStart - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+          const duration = ((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+
+          html += `
+            <div class="timeline-row" draggable="true" data-task-id="${task.id}" 
+                 ondragstart="handleDragStart(event)" 
+                 ondragover="handleDragOver(event)" 
+                 ondrop="handleDrop(event)" 
+                 ondragend="handleDragEnd(event)">
+              <span class="drag-handle">⋮⋮</span>
+              <div class="task-bar" style="left: ${startOffset}%; width: ${duration}%; background: ${task.color};" 
+                   onclick="openModal(${task.id})"
+                   onmouseenter="showTooltip(event, ${JSON.stringify(task).replace(/"/g, '&quot;')})"
+                   onmousemove="showTooltip(event, ${JSON.stringify(task).replace(/"/g, '&quot;')})"
+                   onmouseleave="hideTooltip()">
+                <div class="task-title">${task.title}</div>
+              </div>
             </div>
-          </div>
-        `;
-      });
+          `;
+        });
+      }
 
       timeline.innerHTML = html;
     }
